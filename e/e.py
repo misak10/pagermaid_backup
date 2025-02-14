@@ -38,7 +38,7 @@ configFilePath = f"plugins{sep}eat{sep}config.json"
 configFileRemoteUrlKey = "eat.configFileRemoteUrl"
 
 
-async def eat_it(context, user, base, mask, photo, number, layer=0):
+async def eat_it(context, target_user, base, mask, photo, number, layer=0):
     mask_size = mask.size
     photo_size = photo.size
     if mask_size[0] < photo_size[0] and mask_size[1] < photo_size[1]:
@@ -67,17 +67,29 @@ async def eat_it(context, user, base, mask, photo, number, layer=0):
     # 增加判断是否有第二个头像孔
     isContinue = len(numberPosition) > 2 and layer == 0
     if isContinue:
-        # 获取用户头像
-        if not user.photo:
-            await context.edit("此用户未设置头像。")
+        # 获取发送者头像
+        sender = context.from_user if context.from_user else context.sender_chat
+        if not sender:
+            await context.edit("无法获取发送者信息。")
+            return base
+            
+        # 获取发送者头像
+        sender_photo = None
+        if isinstance(sender, User):
+            sender_photo = sender.photo
+        elif isinstance(sender, Chat):
+            sender_photo = sender.photo
+            
+        if not sender_photo:
+            await context.edit("发送者未设置头像。")
             return base
             
         await context._client.download_media(
-            user.photo.big_file_id, f"plugins{sep}eat{sep}{str(user.id)}.jpg"
+            sender_photo.big_file_id, f"plugins{sep}eat{sep}{str(sender.id)}.jpg"
         )
 
         try:
-            markImg = Image.open(f"plugins{sep}eat{sep}{str(user.id)}.jpg")
+            markImg = Image.open(f"plugins{sep}eat{sep}{str(sender.id)}.jpg")
             maskImg = Image.open(
                 f"plugins{sep}eat{sep}mask{str(numberPosition[2])}.png"
             ).convert("RGBA")
@@ -85,7 +97,7 @@ async def eat_it(context, user, base, mask, photo, number, layer=0):
             await context.edit(f"图片模版加载出错，请检查并更新配置：mask{str(numberPosition[2])}.png")
             return base
         base = await eat_it(
-            context, user, base, maskImg, markImg, numberPosition[2], layer + 1
+            context, sender, base, maskImg, markImg, numberPosition[2], layer + 1
         )
 
     temp = base.size[0] if base.size[0] > base.size[1] else base.size[1]
@@ -286,10 +298,18 @@ async def eat(client_: Client, context: Message):
                         f"{lang('error_prefix')}{lang('profile_e_nof')}"
                     )
     target_user_id = user.id
-    if not user.photo:
-        return await context.edit("出错了呜呜呜 ~ 此用户无头像。")
+
+    # 获取头像，区分用户和群组
+    user_photo = None
+    if isinstance(user, User):
+        user_photo = user.photo
+    elif isinstance(user, Chat):
+        user_photo = user.photo
+
+    if not user_photo:
+        return await context.edit("出错了呜呜呜 ~ 此用户/群组无头像。")
     photo = await client_.download_media(
-        user.photo.big_file_id,
+        user_photo.big_file_id,
         f"plugins{sep}eat{sep}" + str(target_user_id) + ".jpg",
     )
 
@@ -469,7 +489,7 @@ async def eat(client_: Client, context: Message):
         except:
             pass
         result = await eat_it(
-            context, context.from_user, eatImg, maskImg, markImg, number
+            context, user, eatImg, maskImg, markImg, number
         )
         result.save(f"plugins{sep}eat{sep}eat.webp")
         safe_remove(f"plugins{sep}eat{sep}" + str(target_user_id) + ".jpg")

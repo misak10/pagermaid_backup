@@ -1,11 +1,30 @@
 """ PagerMaid forward plugin. """
 
-from pyrogram.errors import RPCError, ChannelPrivate, UserNotParticipant, ChatWriteForbidden
+from pyrogram.errors import RPCError, ChannelPrivate, UserNotParticipant, ChatWriteForbidden, ChatForwardsRestricted
 from pagermaid.listener import listener
 from pagermaid.enums import Message, Client
 from pagermaid.utils import lang
 from pagermaid.utils.bot_utils import log
 from pagermaid.dependence import sqlite
+from typing import Union, List
+
+async def forward_messages(client: Client, messages: Union[Message, List[Message]], target_id: int) -> bool:
+    """转发单条或多条消息"""
+    try:
+        if isinstance(messages, list):
+            # 转发媒体组
+            await client.forward_messages(
+                chat_id=target_id,
+                from_chat_id=messages[0].chat.id,
+                message_ids=[msg.id for msg in messages]
+            )
+        else:
+            # 转发单条消息
+            await messages.forward(chat_id=target_id)
+        return True
+    except Exception as e:
+        await log(f"转发消息失败: {str(e)}")
+        return False
 
 @listener(
     is_plugin=True,
@@ -23,9 +42,7 @@ async def forward(client: Client, message: Message):
     if not message.reply_to_message:
         return await message.edit("请回复需要转发的消息")
     
-    # 检查参数
     if len(message.parameter) == 0:
-        # 使用默认转发目标
         default_target = sqlite.get("forward.default-target", None)
         if not default_target:
             return await message.edit("未设置默认转发目标，请使用 -fw -set <target_id> 设置")
@@ -44,7 +61,7 @@ async def forward(client: Client, message: Message):
         elif message.parameter[0] == "-set":
             try:
                 target_id = int(message.parameter[1].strip())
-                sqlite["forward.default-target"] = str(target_id).encode()  # 将ID转换为字节存储
+                sqlite["forward.default-target"] = str(target_id).encode()
                 await message.edit(f"已设置默认转发目标为：{target_id}")
                 return
             except ValueError:
@@ -59,18 +76,33 @@ async def forward(client: Client, message: Message):
         return await message.edit("参数错误，格式：-fw -id <target_id> 或 -fw -set <target_id>")
     
     try:
-        # 尝试转发消息
-        await message.reply_to_message.forward(
-            chat_id=target_id
-        )
-        # 删除命令消息
-        await message.delete()
+        await message.edit("正在转发消息...")
+        
+        # 检查是否是媒体组消息
+        if message.reply_to_message.media_group_id:
+            messages = await client.get_media_group(
+                message.reply_to_message.chat.id,
+                message.reply_to_message.id
+            )
+            if await forward_messages(client, messages, target_id):
+                await message.delete()
+            else:
+                raise Exception("转发媒体组失败")
+        else:
+            # 转发单条消息
+            if await forward_messages(client, message.reply_to_message, target_id):
+                await message.delete()
+            else:
+                raise Exception("转发消息失败")
+                
     except ChannelPrivate:
         await message.edit("无法转发到该频道，可能是因为您不是频道成员")
     except UserNotParticipant:
         await message.edit("无法转发到该群组，可能是因为您不是群组成员")
     except ChatWriteForbidden:
         await message.edit("无法转发到该目标，可能是因为您没有发言权限")
+    except ChatForwardsRestricted:
+        await message.edit("该群组/频道禁止转发消息")
     except RPCError as e:
         await message.edit(f"转发失败: {str(e)}")
         await log(f"转发消息到 {target_id} 失败: {str(e)}")

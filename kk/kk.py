@@ -93,11 +93,18 @@ async def kk(client: Client, context: Message):
         info_text = "👤 **用户信息**\n\n"
         info_text += f"**基本信息**\n"
         info_text += f"🆔 **ID** » `{user.id}`\n"
-        info_text += f"👤 **名字** » {user.first_name}"
+        info_text += f"📋 **名字** » {user.first_name}"
         if user.last_name:
-            info_text += f"\n👥 **姓氏** » {user.last_name}"
+            info_text += f"\n📝 **姓氏** » {user.last_name}"
         if user.username:
-            info_text += f"\n🔤 **用户名** » @{user.username}"
+            info_text += f"\n🔰 **用户名** » @{user.username}"
+        
+        try:
+            common_chats = await client.get_common_chats(user.id)
+            if common_chats:
+                info_text += f"\n👥 **共同群组** » {len(common_chats)} 个"
+        except Exception:
+            pass
         
         if context.chat.type.value in ["group", "supergroup"]:
             try:
@@ -105,13 +112,13 @@ async def kk(client: Client, context: Message):
                 if chat_member:
                     status_map = {
                         "ChatMemberStatus.OWNER": "👑 群主",
-                        "ChatMemberStatus.ADMINISTRATOR": "👮 管理员",
-                        "ChatMemberStatus.MEMBER": "👥 成员",
-                        "ChatMemberStatus.RESTRICTED": "🚫 受限制",
-                        "ChatMemberStatus.LEFT": "🚶 已离开",
-                        "ChatMemberStatus.BANNED": "⛔️ 被封禁"
+                        "ChatMemberStatus.ADMINISTRATOR": "⭐️ 管理员",
+                        "ChatMemberStatus.MEMBER": "👤 成员",
+                        "ChatMemberStatus.RESTRICTED": "⚠️ 受限制",
+                        "ChatMemberStatus.LEFT": "💨 已离开",
+                        "ChatMemberStatus.BANNED": "❌ 被封禁"
                     }
-                    info_text += f"\n👥 **群内身份** » {status_map.get(str(chat_member.status), str(chat_member.status))}"
+                    info_text += f"\n💫 **群内身份** » {status_map.get(str(chat_member.status), str(chat_member.status))}"
                     
                     if str(chat_member.status) == "ChatMemberStatus.ADMINISTRATOR":
                         admin_rights = []
@@ -144,15 +151,15 @@ async def kk(client: Client, context: Message):
         if user.is_bot:
             status_info.append("🤖 机器人")
         if user.is_verified:
-            status_info.append("✅ 官方认证")
+            status_info.append("✨ 官方认证")
         if user.is_scam:
-            status_info.append("⚠️ 诈骗用户")
+            status_info.append("⛔️ 诈骗用户")
         if user.is_fake:
-            status_info.append("⚠️ 虚假用户")
+            status_info.append("🚫 虚假用户")
         if user.is_premium:
             status_info.append("💎 高级用户")
         if hasattr(user, 'restrictions') and user.restrictions:
-            status_info.append("⛔️ 账户受限")
+            status_info.append("🔒 账户受限")
             
         if status_info:
             info_text += "\n\n**用户状态**\n"
@@ -165,7 +172,7 @@ async def kk(client: Client, context: Message):
         if user.dc_id:
             other_info.append(f"🌍 **数据中心** » DC{user.dc_id}")
         if user.phone_number:
-            other_info.append(f"📞 **电话** » `{user.phone_number}`")
+            other_info.append(f"📱 **电话** » `{user.phone_number}`")
         if user.status:
             status_map = {
                 "online": "在线",
@@ -175,14 +182,14 @@ async def kk(client: Client, context: Message):
                 "last_month": "一月内在线",
                 "long_time_ago": "很久以前在线"
             }
-            other_info.append(f"📱 **状态** » {status_map.get(user.status.value, user.status.value)}")
+            other_info.append(f"💡 **状态** » {status_map.get(user.status.value, user.status.value)}")
         if user.last_online_date:
-            other_info.append(f"🕒 **最后在线** » {format_date(user.last_online_date)}")
+            other_info.append(f"⏰ **最后在线** » {format_date(user.last_online_date)}")
             
         try:
             full_user = await client.get_chat(user.id)
             if full_user.bio:
-                other_info.append(f"📝 **个性签名** » {full_user.bio}")
+                other_info.append(f"ℹ️ **个性签名** » {full_user.bio}")
         except Exception:
             pass
             
@@ -236,12 +243,12 @@ async def kk(client: Client, context: Message):
             "channel": "频道"
         }.get(user.type.value, user.type.value)
         
-        info_text = f"👥 **{chat_type}信息**\n\n"
+        info_text = f"📢 **{chat_type}信息**\n\n"
         info_text += f"**基本信息**\n"
         info_text += f"🆔 **ID** » `{user.id}`\n"
-        info_text += f"📝 **标题** » {user.title}"
+        info_text += f"📋 **标题** » {user.title}"
         if user.username:
-            info_text += f"\n🔤 **用户名** » @{user.username}"
+            info_text += f"\n🔰 **用户名** » @{user.username}"
         if user.members_count:
             info_text += f"\n👥 **成员数** » {user.members_count}"
             
@@ -251,26 +258,26 @@ async def kk(client: Client, context: Message):
                 if chat_member.status == "creator":
                     info_text += f"\n👑 **身份** » 群主"
                 elif chat_member.status == "administrator":
-                    info_text += f"\n👮 **身份** » 管理员"
+                    info_text += f"\n⭐️ **身份** » 管理员"
         except Exception:
             pass
         
         # 群组状态
         status_info = []
         if user.is_verified:
-            status_info.append("✅ 官方认证")
+            status_info.append("✨ 官方认证")
         if user.is_scam:
-            status_info.append("⚠️ 诈骗群组")
+            status_info.append("⛔️ 诈骗群组")
         if user.is_fake:
-            status_info.append("⚠️ 虚假群组")
+            status_info.append("🚫 虚假群组")
         if user.is_restricted:
-            status_info.append("🚫 受限群组")
+            status_info.append("⚠️ 受限群组")
         if user.has_protected_content:
             status_info.append("🔒 受保护内容")
         if user.available_reactions:
-            status_info.append("😀 允许反应")
+            status_info.append("💫 允许反应")
         if user.is_forum:
-            status_info.append("📋 话题群组")
+            status_info.append("📑 话题群组")
             
         if status_info:
             info_text += "\n\n**群组状态**\n"
